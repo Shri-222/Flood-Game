@@ -440,7 +440,7 @@ export default function FloodGame() {
                   </li>
                 </ul>
 
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div className="mt-4 p-3 rounded-lg">
                   <h4 className="font-semibold text-sm">Current Analysis:</h4>
                   <p className="text-sm">
                     Best move:{" "}
