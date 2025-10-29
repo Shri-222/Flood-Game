@@ -6,19 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Badge } from '../components/ui/badge'
 import { RotateCcw, Trophy, Target, Zap, Undo2 } from "lucide-react"
 
-// Color palette for the game
-// const COLORS = [
-//   "#FF6B6B", // Red
-//   "#4ECDC4", // Teal
-//   "#45B7D1", // Blue
-//   "#96CEB4", // Green
-//   "#FFEAA7", // Yellow
-//   "#DDA0DD", // Plum
-// ]
-
-// Color palette for the game
+// --------- Constants & Defaults ----------
 const COLORS = [
-   "#9CA3AF", // Gray
+  "#9CA3AF", // Gray
   "#93C5FD", // Sky Blue
   "#86EFAC", // Soft Green
   "#FCD34D", // Muted Yellow
@@ -26,19 +16,30 @@ const COLORS = [
   "#C4B5FD", // Light Purple
 ]
 
-// Color palette for the game
+const COLOR_NAMES = ["Gray", "Sky Blue", "Soft Green", "Muted Yellow", "Warm Salmon", "Light Purple"]
+
 // const COLORS = [
-//    "#FFADAD", // Soft Red
-//   "#FFD6A5", // Peach
-//   "#FDFFB6", // Pale Yellow
-//   "#CAFFBF", // Light Green
-//   "#A0C4FF", // Light Blue
-//   "#BDB2FF", // Soft Purple
-// ]
+//   "#E74C3C", // Red
+//   "#F1C40F", // Yellow
+//   "#2ECC71", // Green
+//   "#3498DB", // Blue
+//   "#9B59B6", // Purple
+//   "#E67E22", // Orange
+//   "#1ABC9C", // Teal
+//   "#E84393", // Pink
+// ];
 
-// const COLOR_NAMES = ["Red", "Teal", "Blue", "Green", "Yellow", "Plum"]
+// const COLOR_NAMES = [
+//   "Red",
+//   "Yellow",
+//   "Green",
+//   "Blue",
+//   "Purple",
+//   "Orange",
+//   "Teal",
+//   "Pink",
+// ];
 
-const COLOR_NAMES = ["Gray", "Sky Blue", "Soft Green", "Muted Yellow", " Warm Salmon", "Light Purple"]
 
 const DIRECTIONS = [
   [-1, 0],
@@ -47,58 +48,161 @@ const DIRECTIONS = [
   [0, 1],
 ]
 
-// safe deep clone (uses structuredClone if available)
+const DEFAULT_SIZE = 8
+const DEFAULT_COLORS = 4
+const UNDO_LIMIT = 10
+
 const deepClone = (v) => (typeof structuredClone === "function" ? structuredClone(v) : JSON.parse(JSON.stringify(v)))
 
-/* Memoized cell to reduce re-renders */
-const Cell = React.memo(function Cell({ color }) {
-  return (
-    <div
-      className="w-full aspect-square rounded-sm border border-gray-200 transition-colors"
-      style={{ backgroundColor: COLORS[color] }}
-      aria-hidden
-    />
-  )
-})
+// --------- Cell component (memoized w/ comparator) ----------
+const Cell = React.memo(
+  function Cell({ color, controlled }) {
+    // Tailwind classes: smoothly transition color, slight hover scale for feedback
+    return (
+      <div
+        className={`w-full aspect-square rounded-sm border border-gray-200 transition-colors transform hover:scale-100 ${controlled ? "ring-2 ring-offset-1 ring-blue-300" : ""
+          }`}
+        style={{ backgroundColor: COLORS[color] }}
+        aria-hidden
+      />
+    )
+  },
+  (prev, next) => prev.color === next.color && prev.controlled === next.controlled,
+)
 
+// --------- Helpers ----------
+const generateGrid = (size, colors) => {
+  const grid = Array.from({ length: size }, () => Array(size).fill(0))
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      grid[i][j] = Math.floor(Math.random() * colors)
+    }
+  }
+  return grid
+}
+
+// A more realistic target heuristic
+const calculateTargetMoves = (size, colors) => {
+  // baseline based on size + small penalty for fewer colors
+  return Math.max(1, Math.floor(0.8 * size + colors * 1.5))
+}
+
+// iterative BFS flood fill (non-mutating)
+const floodFill = (grid, startColor, newColor) => {
+  if (!grid || !grid.length || startColor === newColor) return grid
+  const size = grid.length
+  const newGrid = grid.map((r) => r.slice())
+  const visited = Array.from({ length: size }, () => Array(size).fill(false))
+
+  const queue = [[0, 0]]
+  let qi = 0
+  visited[0][0] = true
+
+  while (qi < queue.length) {
+    const [x, y] = queue[qi++]
+    newGrid[x][y] = newColor
+
+    for (const [dx, dy] of DIRECTIONS) {
+      const nx = x + dx
+      const ny = y + dy
+      if (nx >= 0 && nx < size && ny >= 0 && ny < size && !visited[nx][ny] && grid[nx][ny] === startColor) {
+        visited[nx][ny] = true
+        queue.push([nx, ny])
+      }
+    }
+  }
+
+  return newGrid
+}
+
+// get connected region visited matrix, connected size, and boundary components sizes by color
+const getConnectedRegionInfo = (grid) => {
+  if (!grid?.length) return { visited: [], connectedSize: 0, boundaryColorCounts: [] }
+  const size = grid.length
+  const visited = Array.from({ length: size }, () => Array(size).fill(false))
+  const startColor = grid[0][0]
+  const queue = [[0, 0]]
+  let qi = 0
+  visited[0][0] = true
+  let connectedSize = 1
+
+  while (qi < queue.length) {
+    const [x, y] = queue[qi++]
+    for (const [dx, dy] of DIRECTIONS) {
+      const nx = x + dx
+      const ny = y + dy
+      if (nx >= 0 && nx < size && ny >= 0 && ny < size && !visited[nx][ny] && grid[nx][ny] === startColor) {
+        visited[nx][ny] = true
+        queue.push([nx, ny])
+        connectedSize++
+      }
+    }
+  }
+
+  // To compute immediate potential gains: find adjacent components of each color and sum their sizes (without recounting)
+  const componentVisited = Array.from({ length: size }, () => Array(size).fill(false))
+  const boundaryColorCounts = {}
+
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      if (!visited[i][j]) continue
+      for (const [dx, dy] of DIRECTIONS) {
+        const nx = i + dx
+        const ny = j + dy
+        if (nx >= 0 && nx < size && ny >= 0 && ny < size && !visited[nx][ny] && !componentVisited[nx][ny]) {
+          // Found a neighbor not in connected region. Flood-fill its component (bounded)
+          const compColor = grid[nx][ny]
+          // BFS for component
+          const q = [[nx, ny]]
+          let qidx = 0
+          componentVisited[nx][ny] = true
+          let compSize = 0
+          while (qidx < q.length) {
+            const [cx, cy] = q[qidx++]
+            compSize++
+            for (const [ddx, ddy] of DIRECTIONS) {
+              const mx = cx + ddx
+              const my = cy + ddy
+              if (mx >= 0 && mx < size && my >= 0 && my < size && !visited[mx][my] && !componentVisited[mx][my] && grid[mx][my] === compColor) {
+                componentVisited[mx][my] = true
+                q.push([mx, my])
+              }
+            }
+          }
+          boundaryColorCounts[compColor] = (boundaryColorCounts[compColor] || 0) + compSize
+        }
+      }
+    }
+  }
+
+  return { visited, connectedSize, boundaryColorCounts }
+}
+
+// --------- Main component ----------
 export default function FloodGame() {
   const [gameState, setGameState] = useState({
     grid: [],
     moves: 0,
     targetMoves: 0,
     isComplete: false,
-    gridSize: 12,
-    colorCount: 6,
+    gridSize: DEFAULT_SIZE,
+    colorCount: DEFAULT_COLORS,
     isInitialized: false,
   })
 
   const [gameHistory, setGameHistory] = useState([])
   const [showStrategy, setShowStrategy] = useState(false)
 
-  // Generate a random grid
-  const generateGrid = useCallback((size, colors) => {
-    const grid = Array.from({ length: size }, () => Array(size).fill(0))
-    for (let i = 0; i < size; i++) {
-      for (let j = 0; j < size; j++) {
-        grid[i][j] = Math.floor(Math.random() * colors)
-      }
-    }
-    return grid
-  }, [])
+  // localStorage keys for best score persistence
+  const getBestScoreKey = (size, colors) => `flood_best_${size}x${size}_${colors}`
 
-  // Calculate target moves (approximate heuristic)
-  const calculateTargetMoves = useCallback((size, colors) => {
-    return Math.max(1, Math.ceil((size * size * 0.8) / (colors * 2)) + Math.floor(size / 3))
-  }, [])
-
-  // Initialize new game
+  // Initialize a new game
   const newGame = useCallback(
-    (size = 8, colors = 4) => {
+    (size = DEFAULT_SIZE, colors = DEFAULT_COLORS) => {
       const safeColors = Math.max(2, Math.min(colors, COLORS.length))
       const safeSize = Math.max(2, size)
       const grid = generateGrid(safeSize, safeColors)
       const targetMoves = calculateTargetMoves(safeSize, safeColors)
-
       setGameState({
         grid,
         moves: 0,
@@ -110,100 +214,15 @@ export default function FloodGame() {
       })
       setGameHistory([deepClone(grid)])
     },
-    [generateGrid, calculateTargetMoves],
+    [],
   )
 
-  // Flood fill algorithm (BFS with head index, no .shift())
-  const floodFill = useCallback((grid, startColor, newColor) => {
-    if (!grid || !grid.length || startColor === newColor) return grid
-    const size = grid.length
-    const newGrid = grid.map((r) => r.slice())
-    const visited = Array.from({ length: size }, () => Array(size).fill(false))
-
-    const queue = [[0, 0]]
-    let qi = 0
-    visited[0][0] = true
-
-    while (qi < queue.length) {
-      const [x, y] = queue[qi++]
-      newGrid[x][y] = newColor
-
-      for (const [dx, dy] of DIRECTIONS) {
-        const nx = x + dx
-        const ny = y + dy
-        if (nx >= 0 && nx < size && ny >= 0 && ny < size && !visited[nx][ny] && grid[nx][ny] === startColor) {
-          visited[nx][ny] = true
-          queue.push([nx, ny])
-        }
-      }
-    }
-
-    return newGrid
-  }, [])
-
-  // Check if grid is all one color
-  const checkComplete = useCallback((grid) => {
-    if (!grid?.length) return false
-    const first = grid[0][0]
-    for (let r = 0; r < grid.length; r++) {
-      for (let c = 0; c < grid[r].length; c++) {
-        if (grid[r][c] !== first) return false
-      }
-    }
-    return true
-  }, [])
-
-  // Get connected region size starting from 0,0 (BFS)
-  const getConnectedSize = useCallback((grid) => {
-    if (!grid?.length) return 0
-    const size = grid.length
-    const startColor = grid[0][0]
-    const visited = Array.from({ length: size }, () => Array(size).fill(false))
-    const queue = [[0, 0]]
-    let qi = 0
-    visited[0][0] = true
-    let count = 1
-
-    while (qi < queue.length) {
-      const [x, y] = queue[qi++]
-      for (const [dx, dy] of DIRECTIONS) {
-        const nx = x + dx
-        const ny = y + dy
-        if (nx >= 0 && nx < size && ny >= 0 && ny < size && !visited[nx][ny] && grid[nx][ny] === startColor) {
-          visited[nx][ny] = true
-          queue.push([nx, ny])
-          count++
-        }
-      }
-    }
-    return count
-  }, [])
-
-  // Calculate potential gains (delta) for each color — memoized below
-  const calculatePotentialGains = useCallback(
-    (grid, colorCount) => {
-      if (!grid?.length) return new Array(colorCount).fill(0)
-      const gains = new Array(colorCount).fill(0)
-      const currentColor = grid[0][0]
-      const currentSize = getConnectedSize(grid)
-
-      for (let color = 0; color < colorCount; color++) {
-        if (color === currentColor) continue
-        const testGrid = floodFill(grid, currentColor, color)
-        const newSize = getConnectedSize(testGrid)
-        gains[color] = Math.max(0, newSize - currentSize) // delta
-      }
-      return gains
-    },
-    [floodFill, getConnectedSize],
-  )
-
-  // Initialize game once on mount
+  // On mount: start a default game
   useEffect(() => {
-    newGame()
+    newGame(DEFAULT_SIZE, DEFAULT_COLORS)
   }, [newGame])
 
-  // selectColor uses functional setState to avoid stale state capture
+  // Select color (user action)
   const selectColor = useCallback(
     (colorIndex) => {
       setGameState((prev) => {
@@ -212,11 +231,20 @@ export default function FloodGame() {
         if (currentColor === colorIndex) return prev
 
         const newGrid = floodFill(prev.grid, currentColor, colorIndex)
-        const isComplete = checkComplete(newGrid)
         const newMoves = prev.moves + 1
 
-        // Update history outside of returning state
-        setGameHistory((h) => [...h, deepClone(newGrid)])
+        // push to history (limit)
+        setGameHistory((h) => {
+          const next = [...h, deepClone(newGrid)]
+          if (next.length > UNDO_LIMIT) next.splice(0, next.length - UNDO_LIMIT)
+          return next
+        })
+
+        const isComplete = (() => {
+          // quick check: if connected size equals total
+          const { connectedSize } = getConnectedRegionInfo(newGrid)
+          return connectedSize === newGrid.length * newGrid.length
+        })()
 
         return {
           ...prev,
@@ -226,10 +254,10 @@ export default function FloodGame() {
         }
       })
     },
-    [floodFill, checkComplete],
+    [],
   )
 
-  // Undo last move (optional helper)
+  // Undo
   const undo = useCallback(() => {
     setGameHistory((h) => {
       if (h.length <= 1) return h
@@ -239,19 +267,47 @@ export default function FloodGame() {
         ...prev,
         grid: lastGrid,
         moves: Math.max(0, prev.moves - 1),
-        isComplete: checkComplete(lastGrid),
+        isComplete: (() => {
+          const { connectedSize } = getConnectedRegionInfo(lastGrid)
+          return connectedSize === lastGrid.length * lastGrid.length
+        })(),
       }))
       return newHistory
     })
-  }, [checkComplete])
+  }, [])
 
-  // Derived values memoized for performance
-  const currentConnectedSize = useMemo(() => getConnectedSize(gameState.grid), [gameState.grid, getConnectedSize])
+  // Reset game (keeps current grid size & colors)
+  const resetGame = useCallback(() => {
+    setGameState((prev) => {
+      const grid = generateGrid(prev.gridSize, prev.colorCount)
+      const targetMoves = calculateTargetMoves(prev.gridSize, prev.colorCount)
+      setGameHistory([deepClone(grid)])
+      return {
+        grid,
+        moves: 0,
+        targetMoves,
+        isComplete: false,
+        gridSize: prev.gridSize,
+        colorCount: prev.colorCount,
+        isInitialized: true,
+      }
+    })
+  }, [])
 
-  const potentialGains = useMemo(
-    () => calculatePotentialGains(gameState.grid, gameState.colorCount),
-    [gameState.grid, gameState.colorCount, calculatePotentialGains],
-  )
+  // Derived & memoized values
+  const connectedInfo = useMemo(() => getConnectedRegionInfo(gameState.grid), [gameState.grid])
+  const currentConnectedSize = connectedInfo.connectedSize || 0
+
+  const potentialGains = useMemo(() => {
+    if (!gameState.grid?.length) return new Array(gameState.colorCount).fill(0)
+    const gains = new Array(gameState.colorCount).fill(0)
+    if (!connectedInfo.boundaryColorCounts) return gains
+    for (let c = 0; c < gameState.colorCount; c++) {
+      gains[c] = connectedInfo.boundaryColorCounts[c] || 0
+    }
+    // Gains are immediate neighbor-component sizes. Could be extended later.
+    return gains
+  }, [gameState.grid, gameState.colorCount, connectedInfo])
 
   const bestMove = useMemo(() => {
     if (!potentialGains || potentialGains.length === 0) return -1
@@ -259,7 +315,25 @@ export default function FloodGame() {
     return max > 0 ? potentialGains.indexOf(max) : -1
   }, [potentialGains])
 
-  // Early return if not initialized (keeps UI consistent)
+  // Save best score to localStorage when completing a game
+  useEffect(() => {
+    if (!gameState.isComplete) return
+    const key = getBestScoreKey(gameState.gridSize, gameState.colorCount)
+    const existing = parseInt(localStorage.getItem(key) || "0", 10)
+    // lower moves are better
+    const currentScore = gameState.moves
+    if (!existing || currentScore < existing || existing === 0) {
+      localStorage.setItem(key, String(currentScore))
+    }
+  }, [gameState.isComplete, gameState.moves, gameState.gridSize, gameState.colorCount])
+
+  const getBestScore = (size, colors) => {
+    const key = getBestScoreKey(size, colors)
+    const v = localStorage.getItem(key)
+    return v ? parseInt(v, 10) : null
+  }
+
+  // Early return while initializing
   if (!gameState.isInitialized || !gameState.grid?.length) {
     return (
       <div className="max-w-6xl mx-auto p-4">
@@ -272,49 +346,22 @@ export default function FloodGame() {
     )
   }
 
+  // UI render
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
-      {/* Header */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-6 w-6 text-blue-500" />
-            Flood Puzzle Game - Complete Demo
-            {/* Game Statistics */}
-      {gameState.isComplete && (
-        <div className='w-[50%] '>
-          <div>
-            <div className="flex items-center gap-2 pl-4">
-              <Trophy className="h-5 w-5 text-yellow-500" />
-              Game Complete!
-            </div>
-          </div>
-          {/* <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold">{gameState.moves}</div>
-                <div className="text-sm text-gray-600">Moves Used</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">{gameState.targetMoves}</div>
-                <div className="text-sm text-gray-600">Target Moves</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold">
-                  {gameState.moves > 0 ? Math.round((gameState.targetMoves / gameState.moves) * 100) : 100}%
+            ColorFlow
+            {gameState.isComplete && (
+              <div className='w-[50%] '>
+                <div className="flex items-center gap-2 pl-4">
+                  <Trophy className="h-5 w-5 text-yellow-500" />
+                  Game Complete!
                 </div>
-                <div className="text-sm text-gray-600">Efficiency</div>
               </div>
-              <div>
-                <div className="text-2xl font-bold">
-                  {gameState.gridSize}×{gameState.gridSize}
-                </div>
-                <div className="text-sm text-gray-600">Grid Size</div>
-              </div>
-            </div>
-          </CardContent> */}
-        </div>
-      )} 
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -322,10 +369,10 @@ export default function FloodGame() {
             <div className="flex gap-4">
               <Badge variant="outline" className="flex items-center gap-1">
                 <Target className="h-4 w-4" />
-                Moves: {gameState.moves}/{gameState.targetMoves}
+                Moves: {gameState.moves}/{gameState.targetMoves || calculateTargetMoves(gameState.gridSize, gameState.colorCount)}
               </Badge>
               <Badge variant="outline">
-                Connected: {currentConnectedSize}/{gameState.gridSize * gameState.gridSize}
+                Controlled: {currentConnectedSize}/{gameState.gridSize * gameState.gridSize}
               </Badge>
               {gameState.isComplete && (
                 <Badge className="bg-green-500 flex items-center gap-1">
@@ -342,6 +389,9 @@ export default function FloodGame() {
                 <RotateCcw className="h-4 w-4" />
                 New Game
               </Button>
+              <Button onClick={resetGame} variant="outline" className="ml-2">
+                Reset Game
+              </Button>
               <Button onClick={undo} variant="outline" className="ml-2">
                 <Undo2 className="h-4 w-4" />
                 Undo
@@ -352,14 +402,13 @@ export default function FloodGame() {
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Game Board */}
+        {/* Board */}
         <Card>
           <CardHeader>
             <CardTitle>Game Board</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Grid container */}
               <div
                 className="grid gap-1 mx-auto"
                 style={{
@@ -368,11 +417,14 @@ export default function FloodGame() {
                 }}
               >
                 {gameState.grid.map((row, i) =>
-                  row.map((cell, j) => <Cell key={`${i}-${j}`} color={cell} />),
+                  row.map((cell, j) => {
+                    const controlled = connectedInfo.visited?.[i]?.[j] || false
+                    return <Cell key={`${i}-${j}`} color={cell} controlled={controlled} />
+                  }),
                 )}
               </div>
 
-              {/* Color Palette */}
+              {/* Palette */}
               <div className="space-y-2">
                 <h3 className="font-semibold">Select Color:</h3>
                 <div className="flex gap-2 justify-center">
@@ -380,19 +432,19 @@ export default function FloodGame() {
                     <Button
                       key={index}
                       onClick={() => selectColor(index)}
-                      className="w-12 h-12 rounded-lg border-2 border-gray-300 hover:border-gray-500 transition-all relative"
+                      className={`w-12 h-12 rounded-lg border-2 border-gray-300 hover:border-gray-500 transition-all relative 
+                        ${showStrategy && index === bestMove && potentialGains[index] > 0 ? "ring-4 ring-black ring-opacity-50 active-ring"
+                          : ""
+                        }`}
                       style={{ backgroundColor: color }}
                       disabled={gameState.grid[0][0] === index || gameState.isComplete}
-                      aria-label={`${COLOR_NAMES[index]} - Potential gain: ${potentialGains[index]} cells`}
-                      title={`${COLOR_NAMES[index]} - Potential gain: ${potentialGains[index]} cells`}
+                      aria-label={`${COLOR_NAMES[index]} - Potential gain: ${potentialGains[index] || 0} cells`}
+                      title={`${COLOR_NAMES[index]} - Potential gain: ${potentialGains[index] || 0} cells`}
                     >
                       {showStrategy && potentialGains[index] > 0 && (
                         <span className="text-white font-bold text-xs bg-black bg-opacity-50 rounded px-1">
                           +{potentialGains[index]}
                         </span>
-                      )}
-                      {showStrategy && index === bestMove && potentialGains[index] > 0 && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border border-yellow-600" />
                       )}
                     </Button>
                   ))}
@@ -402,7 +454,7 @@ export default function FloodGame() {
           </CardContent>
         </Card>
 
-        {/* Strategy & Rules */}
+        {/* Strategy */}
         <Card>
           <CardHeader>
             <CardTitle>Rules & Strategy</CardTitle>
@@ -449,9 +501,8 @@ export default function FloodGame() {
                     </span>{" "}
                     {bestMove >= 0 && `(+${potentialGains[bestMove]} cells)`}
                   </p>
-                  <p className="text-sm">
-                    Progress: {Math.round((currentConnectedSize / (gameState.gridSize * gameState.gridSize)) * 100)}% complete
-                  </p>
+                  <p className="text-sm">Progress: {Math.round((currentConnectedSize / (gameState.gridSize * gameState.gridSize)) * 100)}% complete</p>
+                  <p className="text-sm">Best score (mode): {getBestScore(gameState.gridSize, gameState.colorCount) ?? "—"}</p>
                 </div>
               </div>
             )}
@@ -530,14 +581,14 @@ export default function FloodGame() {
                   <strong>Target Calculation:</strong> Based on grid size and color count
                 </li>
                 <li>
-                  <strong>Optimization:</strong> Greedy approach often works well
+                  <strong>Optimization:</strong> We cache connected region and compute neighbor component sizes to avoid redundant full-grid scans.
                 </li>
               </ul>
             </div>
           </div>
         </CardContent>
       </Card>
-
     </div>
   )
 }
+stability 
