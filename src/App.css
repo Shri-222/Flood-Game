@@ -36,3 +36,25 @@
     transform: rotate(360deg);
   }
 }
+
+.tile {
+  transition:
+    background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s ease-out,
+    box-shadow 0.25s ease-out;
+  will-change: background-color, transform;
+}
+
+@keyframes wave {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.tile.animating {
+  transform: scale(1.1);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.35);
+  animation: wave 0.3s ease-in-out;
+}
+
+
