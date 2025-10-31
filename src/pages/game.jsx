@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { RotateCcw, Trophy, Target, Zap, Undo2 } from "lucide-react";
+import { RotateCcw, Trophy, Target, Zap, Undo2, Moon, Sun } from "lucide-react";
 
 // --------- Constants & Defaults ----------
 const COLORS = [
@@ -72,8 +72,8 @@ const Cell = React.memo(
     // Tailwind classes: smoothly transition color, slight hover scale for feedback
     return (
       <div
-        className={`tile w-full aspect-square rounded-sm border border-gray-200 hover:border-gray-400 transition-all duration-200
-          ${controlled ? "ring-2 ring-offset-1 ring-blue-300 scale-105" : "scale-100"}
+        className={`tile w-full aspect-square rounded-sm border border-gray-300 dark:border-gray-700 hover:border-gray-500 transition-all duration-200
+          ${controlled ? "ring-2 ring-offset-1 ring-blue-300 dark:ring-blue-500 scale-105" : "scale-100"}
           ${animating ? "animating" : ""}
         `}
         style={{ backgroundColor: COLORS[color] }}
@@ -209,6 +209,15 @@ export default function FloodGame() {
   // Animation state for cell transitions
   const [animatingCells, setAnimatingCells] = useState(new Set());
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // Dark Mode for the page 
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Dark mode on/off
+  useEffect(() => {
+    if (darkMode) document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
+  }, [darkMode]);
 
   // localStorage keys for best score persistence
   const getBestScoreKey = (size, colors) => `flood_best_${size}x${size}_${colors}`;
@@ -442,7 +451,7 @@ setTimeout(() => {
   // Early return while initializing
   if (!gameState.isInitialized || !gameState.grid?.length) {
     return (
-      <div className="max-w-6xl mx-auto p-4">
+      <div className="max-w-6xl mx-auto p-4 space-y-6 bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
         <Card>
           <CardContent className="p-8 text-center">
             <div className="text-lg">Initializing game...</div>
@@ -454,11 +463,11 @@ setTimeout(() => {
 
   // UI render
   return (
-    <div className="max-w-6xl mx-auto p-4 space-y-6">
-      <Card>
+    <div className="max-w-6xl mx-auto p-4 space-y-6 bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
+      <Card className="bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-300">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="h-6 w-6 text-blue-500" />
+            
             ColorFlow
             {gameState.isComplete && (
               <div className="w-[50%] ">
@@ -494,6 +503,22 @@ setTimeout(() => {
               )}
             </div>
             <div className="flex gap-2">
+              <Button
+                onClick={() => setDarkMode(!darkMode)}
+                variant="outline"
+                className="ml-2 flex items-center gap-1"
+              >
+                {darkMode ? (
+                  <div>
+                    <Sun className="h-4 w-4 text-yellow-400" /> 
+                  </div>
+                ) : (
+                  <div>
+                    <Moon className="h-4 w-4 text-blue-400" />
+                  </div>
+                )}
+              </Button>
+
               <Button
                 onClick={() => setShowStrategy((s) => !s)}
                 variant="outline"
@@ -559,7 +584,7 @@ setTimeout(() => {
                     <Button
                       key={index}
                       onClick={() => selectColor(index)}
-                      className={`w-12 h-12 rounded-lg border-2 border-gray-300 hover:border-gray-500 transition-all relative 
+                      className={`w-12 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 transition-all relative 
                         ${
                           showStrategy &&
                           index === bestMove &&
@@ -709,75 +734,6 @@ setTimeout(() => {
           </CardContent>
         </Card>
       </div>
-
-      {/* Advanced Features */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Advanced Game Mechanics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-semibold mb-2">Scoring System:</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>
-                  <strong>Perfect:</strong> Complete within target moves
-                </li>
-                <li>
-                  <strong>Good:</strong> Complete within 120% of target
-                </li>
-                <li>
-                  <strong>Fair:</strong> Complete within 150% of target
-                </li>
-                <li>
-                  <strong>Poor:</strong> Exceeds 150% of target moves
-                </li>
-              </ul>
-
-              <div className="mt-3 p-2 bg-gray-50 rounded">
-                <p className="text-sm">
-                  <strong>Current Status:</strong>{" "}
-                  {gameState.isComplete
-                    ? gameState.moves <= gameState.targetMoves
-                      ? "Perfect! 🏆"
-                      : gameState.moves <= gameState.targetMoves * 1.2
-                      ? "Good! 👍"
-                      : gameState.moves <= gameState.targetMoves * 1.5
-                      ? "Fair 👌"
-                      : "Keep trying! 💪"
-                    : `In progress... (${Math.round(
-                        (currentConnectedSize /
-                          (gameState.gridSize * gameState.gridSize)) *
-                          100
-                      )}%)`}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-2">Algorithm Details:</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>
-                  <strong>Flood Fill:</strong> Breadth-first search from origin
-                </li>
-                <li>
-                  <strong>Connected Component:</strong> Only adjacent cells
-                  (4-way)
-                </li>
-                <li>
-                  <strong>Target Calculation:</strong> Based on grid size and
-                  color count
-                </li>
-                <li>
-                  <strong>Optimization:</strong> We cache connected region and
-                  compute neighbor component sizes to avoid redundant full-grid
-                  scans.
-                </li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
