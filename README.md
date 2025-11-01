@@ -1,4 +1,4 @@
-# 🎨 ColorFlow
+# 🎨 ColorFlow  **Live Demo:** [https://flood-game.netlify.app](https://flood-game.netlify.app)
 
 **ColorFlow** is a modern, minimalist, and strategy-based puzzle game built with **React + Tailwind CSS**.  
 Your goal: flood the entire board with a single color in as few moves as possible.
@@ -98,10 +98,3 @@ Animations are performed asynchronously with adaptive batching to ensure smooth 
 - [ ] Touch / mobile gesture support  
 - [ ] Color-blind accessibility palettes  
 
----
-
-## 👨‍💻 Developer
-
-**Author:** Shri  
-**Project:** ColorFlow — Intelligent Flood-It Puzzle  
-**Live Demo:** [https://flood-game.netlify.app](https://flood-game.netlify.app)
