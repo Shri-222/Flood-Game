@@ -1,70 +1,107 @@
-# Getting Started with Create React App
+# 🎨 ColorFlow
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+**ColorFlow** is a modern, minimalist, and strategy-based puzzle game built with **React + Tailwind CSS**.  
+Your goal: flood the entire board with a single color in as few moves as possible.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 🧠 Game Concept
 
-### `npm start`
+ColorFlow is a digital interpretation of the classic “Flood It!” puzzle — but rebuilt with smooth transitions, adaptive animations, responsive UI, and state persistence.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- Start from the **top-left corner**.  
+- Click on a **color tile** to flood your region with that color.  
+- Your area expands to include all connected tiles of the same color.  
+- Complete the board in the **least number of moves** to win.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## ⚡ Features
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+✅ **Smooth Flood Animation**  
+Sequential cell-fill animation using async batch updates for a natural flowing effect.  
 
-### `npm run build`
+✅ **Responsive UI**  
+Adaptive layout that scales perfectly across desktop and mobile screens.  
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+✅ **Dynamic Color Palettes**  
+Supports both **light** and **dark themes** with matching color sets.  
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+✅ **Game Modes**  
+Choose between four modes:  
+- 🟢 Easy (8×8, 4 colors)  
+- 🟡 Normal (12×12, 6 colors)  
+- 🔵 Hard (16×16, 6 colors)  
+- 🔴 Expert (20×20, 8 colors)  
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+✅ **Persistent State & Scores**  
+LocalStorage saves your best scores and last game state.  
 
-### `npm run eject`
+✅ **Hints & Strategy Mode**  
+Optional "Show Strategy" button highlights the most efficient next move.   
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+---
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 🧩 Tech Stack
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- **Frontend:** React 18   
+- **Styling:** Tailwind CSS + shadcn/ui  
+- **Icons:** Lucide React  
+- **State Management:** React Hooks + Local Storage  
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+---
 
-## Learn More
+## 🚀 Installation
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+# 1. Clone the repository
+git clone https://github.com/Shri-222/Flood-Game.git
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+# 2. Navigate to the folder
+cd Flood-Game
 
-### Code Splitting
+# 3. Install dependencies
+npm install
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+# 4. Run the development server
+npm run dev
+```
 
-### Analyzing the Bundle Size
+Open the app in your browser at [http://localhost:5173](http://localhost:5173).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## 🎮 Controls
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+| Action | Description |
+|--------|--------------|
+| Click Color | Floods connected region with selected color |
+| Undo | Reverts last move |
+| Reset | Generates a new random board |
+| Show Strategy | Highlights color with max gain potential |
+| New Game | Restarts with same mode or a new mode |
 
-### Advanced Configuration
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## 🧠 Algorithm Notes
 
-### Deployment
+ColorFlow uses a **Breadth-First Search (BFS)** flood-fill algorithm combined with a **connected-component boundary analysis** for efficient computation of the best next move.  
+Animations are performed asynchronously with adaptive batching to ensure smooth performance even on large grids.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+---
 
-### `npm run build` fails to minify
+## 💡 Future Enhancements
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- [ ] Add confetti + animation when game completes  
+- [ ] Sound effects on move and completion  
+- [ ] Leaderboard integration  
+- [ ] Touch / mobile gesture support  
+- [ ] Color-blind accessibility palettes  
+
+---
+
+## 👨‍💻 Developer
+
+**Author:** Shri  
+**Project:** ColorFlow — Intelligent Flood-It Puzzle  
+**Live Demo:** [https://flood-game.netlify.app](https://flood-game.netlify.app)
