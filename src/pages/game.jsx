@@ -9,6 +9,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import { RotateCcw, Trophy, Target, Zap, Undo2, Moon, Sun } from "lucide-react";
 
+
 // --------- Constants & Defaults ----------
 const COLORS = [
   "#9CA3AF", // Gray
@@ -467,7 +468,7 @@ setTimeout(() => {
       <Card className="bg-white dark:bg-gray-800 dark:border-gray-700 transition-colors duration-300">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            
+            {/* <image src='/Logo.png' alt='Logo' className='h-8 w-8 z-50'/>  */}
             ColorFlow
             {gameState.isComplete && (
               <div className="w-[50%] ">
@@ -525,14 +526,14 @@ setTimeout(() => {
               >
                 {showStrategy ? "Hide" : "Show"} Strategy
               </Button>
-              <Button
+              {/* <Button
                 onClick={() => newGame()}
                 className="flex items-center gap-1"
                 variant="outline"
               >
                 <RotateCcw className="h-4 w-4" />
                 New Game
-              </Button>
+              </Button> */}
               <Button onClick={resetGame} variant="outline" className="ml-2">
                 Reset Game
               </Button>
@@ -589,7 +590,7 @@ setTimeout(() => {
                           showStrategy &&
                           index === bestMove &&
                           potentialGains[index] > 0
-                            ? "ring-4 ring-black ring-opacity-50 active-ring"
+                            ? "ring-4 ring-black ring-opacity-50 active-ring dark:ring-white dark:ring-opacity-50"
                             : ""
                         }`}
                       style={{ backgroundColor: color }}
